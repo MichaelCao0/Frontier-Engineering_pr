@@ -4,6 +4,7 @@ from typing import Type
 
 from frontier_eval.tasks.base import Task
 from frontier_eval.tasks.denoising import DenoisingTask
+from frontier_eval.tasks.dynamic_obstacle_navigation import DynamicObstacleNavigationTask
 from frontier_eval.tasks.iscso2015 import ISCSO2015Task
 from frontier_eval.tasks.iscso2023 import ISCSO2023Task
 from frontier_eval.tasks.mla import MLATask
@@ -11,6 +12,8 @@ from frontier_eval.tasks.malloclab import MallocLabTask
 from frontier_eval.tasks.manned_lunar_landing import MannedLunarLandingTask
 from frontier_eval.tasks.perturbation_prediction import PerturbationPredictionTask
 from frontier_eval.tasks.predict_modality import PredictModalityTask
+from frontier_eval.tasks.quadruped_gait import QuadrupedGaitTask
+from frontier_eval.tasks.robot_arm_cycle_time import RobotArmCycleTimeTask
 from frontier_eval.tasks.trimul import TriMulTask
 from frontier_eval.tasks.smoke import SmokeTask
 
@@ -22,6 +25,9 @@ _TASKS: dict[str, Type[Task]] = {
     DenoisingTask.NAME: DenoisingTask,
     PerturbationPredictionTask.NAME: PerturbationPredictionTask,
     PredictModalityTask.NAME: PredictModalityTask,
+    RobotArmCycleTimeTask.NAME: RobotArmCycleTimeTask,
+    QuadrupedGaitTask.NAME: QuadrupedGaitTask,
+    DynamicObstacleNavigationTask.NAME: DynamicObstacleNavigationTask,
     TriMulTask.NAME: TriMulTask,
     MLATask.NAME: MLATask,
     MallocLabTask.NAME: MallocLabTask,
