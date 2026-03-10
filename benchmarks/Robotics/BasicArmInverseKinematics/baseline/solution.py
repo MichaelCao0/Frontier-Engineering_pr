@@ -1,7 +1,9 @@
 # EVOLVE-BLOCK-START
 """Baseline for BasicArmInverseKinematics.
 
-Uses PyBullet's IK solver to generate one 7-DoF joint solution per target pose.
+A simple one-shot IK baseline:
+- one calculateInverseKinematics call per target
+- clamp to joint limits
 """
 
 from __future__ import annotations
@@ -9,7 +11,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pybullet as p
 import pybullet_data
 
@@ -35,13 +36,6 @@ def _ee_link_index(robot_id: int, ee_link_name: str) -> int:
     raise RuntimeError(f"end-effector link not found: {ee_link_name}")
 
 
-def _quat_angle_rad(q1_xyzw: np.ndarray, q2_xyzw: np.ndarray) -> float:
-    q1 = q1_xyzw / max(1e-12, float(np.linalg.norm(q1_xyzw)))
-    q2 = q2_xyzw / max(1e-12, float(np.linalg.norm(q2_xyzw)))
-    dot = float(np.clip(abs(np.dot(q1, q2)), -1.0, 1.0))
-    return float(2.0 * np.arccos(dot))
-
-
 def main() -> None:
     task_root = Path(__file__).resolve().parents[1]
     cfg = _load_targets(task_root / "references" / "targets.json")
@@ -57,53 +51,30 @@ def main() -> None:
         joint_idxs = _joint_indices(robot_id)
         ee_idx = _ee_link_index(robot_id, ee_link_name)
 
-        lower = np.array([p.getJointInfo(robot_id, j)[8] for j in joint_idxs], dtype=float)
-        upper = np.array([p.getJointInfo(robot_id, j)[9] for j in joint_idxs], dtype=float)
-        joint_ranges = upper - lower
-        rest = 0.5 * (lower + upper)
-        seeds = [rest, 0.35 * lower + 0.65 * upper, 0.65 * lower + 0.35 * upper, np.zeros(7, dtype=float)]
+        lower = [float(p.getJointInfo(robot_id, j)[8]) for j in joint_idxs]
+        upper = [float(p.getJointInfo(robot_id, j)[9]) for j in joint_idxs]
+        joint_ranges = [hi - lo for lo, hi in zip(lower, upper)]
+        rest = [0.5 * (lo + hi) for lo, hi in zip(lower, upper)]
 
         solutions: list[list[float]] = []
         for tgt in targets:
             target_pos = tgt["position"]
             target_quat = tgt["quaternion"]
-            best_q = rest.copy()
-            best_cost = float("inf")
-
-            for seed in seeds:
-                q_guess = np.clip(seed, lower, upper)
-                for _ in range(4):
-                    for k, joint_idx in enumerate(joint_idxs):
-                        p.resetJointState(robot_id, joint_idx, float(q_guess[k]))
-
-                    q = p.calculateInverseKinematics(
-                        robot_id,
-                        ee_idx,
-                        targetPosition=target_pos,
-                        targetOrientation=target_quat,
-                        lowerLimits=lower.tolist(),
-                        upperLimits=upper.tolist(),
-                        jointRanges=joint_ranges.tolist(),
-                        restPoses=q_guess.tolist(),
-                        maxNumIterations=500,
-                        residualThreshold=1e-9,
-                    )
-                    q_guess = np.clip(np.array(q[:7], dtype=float), lower, upper)
-
-                for k, joint_idx in enumerate(joint_idxs):
-                    p.resetJointState(robot_id, joint_idx, float(q_guess[k]))
-                ls = p.getLinkState(robot_id, ee_idx, computeForwardKinematics=True)
-                pos_cur = np.array(ls[4], dtype=float)
-                quat_cur = np.array(ls[5], dtype=float)
-                pos_err = float(np.linalg.norm(pos_cur - np.array(target_pos, dtype=float)))
-                ori_err = _quat_angle_rad(quat_cur, np.array(target_quat, dtype=float))
-                cost = pos_err + 0.1 * ori_err
-
-                if cost < best_cost:
-                    best_cost = cost
-                    best_q = q_guess.copy()
-
-            solutions.append([float(v) for v in best_q])
+            q = p.calculateInverseKinematics(
+                robot_id,
+                ee_idx,
+                targetPosition=target_pos,
+                targetOrientation=target_quat,
+                lowerLimits=lower,
+                upperLimits=upper,
+                jointRanges=joint_ranges,
+                restPoses=rest,
+                maxNumIterations=80,
+                residualThreshold=1e-6,
+            )
+            q7 = [float(q[i]) for i in range(7)]
+            q7 = [min(max(v, lo), hi) for v, lo, hi in zip(q7, lower, upper)]
+            solutions.append(q7)
 
         with open("submission.json", "w", encoding="utf-8") as f:
             json.dump({"solutions": solutions}, f, indent=2)
