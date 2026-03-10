@@ -1,6 +1,6 @@
 Baseline run (local):
-{"score": 979999.9987115987, "feasible": true, "details": {"success_count": 49, "target_count": 50, "success_rate": 0.98, "mean_position_error_m": 0.00012396001116928744, "mean_orientation_error_deg": 0.6671757489414558, "mean_pose_error": 0.001288401362018035}}
+{"score": 959999.9822879503, "feasible": true, "details": {"success_count": 48, "target_count": 50, "success_rate": 0.96, "mean_position_error_m": 0.013294812537583436, "mean_orientation_error_deg": 2.530890441064666, "mean_pose_error": 0.017712049657966432}}
 
 Notes:
-- Baseline uses multi-seed IK refinement and FK-based best-solution selection.
-- Baseline is a high-success feasible reference, not a globally optimal IK strategy.
+- Baseline uses lightweight multi-seed IK with limited refinement.
+- Baseline is a feasible reference, intentionally not optimized for best score.
