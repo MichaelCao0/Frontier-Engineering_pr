@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Type
 
 from frontier_eval.tasks.base import Task
+from frontier_eval.tasks.basic_arm_inverse_kinematics import BasicArmInverseKinematicsTask
 from frontier_eval.tasks.cryptographic.task import (
     CryptoAES128Task,
     CryptoSHA3_256Task,
@@ -31,6 +32,7 @@ from frontier_eval.tasks.unified import UnifiedTask
 
 _TASKS: dict[str, Type[Task]] = {
     SmokeTask.NAME: SmokeTask,
+    BasicArmInverseKinematicsTask.NAME: BasicArmInverseKinematicsTask,
     CryptoAES128Task.NAME: CryptoAES128Task,
     CryptoSHA256Task.NAME: CryptoSHA256Task,
     CryptoSHA3_256Task.NAME: CryptoSHA3_256Task,
