@@ -60,7 +60,8 @@ python verification/evaluator.py --submission submission.json
 
 ## Scoring
 
-- All 3 scenes must be successful to be feasible.
+- All **5 scenes** must be successful to be feasible.
 - Score = average arrival time across all scenes (lower is better).
+- Each scene has 2-3 dynamic obstacles with complex trajectories.
 - Any violation (collision, out-of-bounds, limit violation, timeout) makes that scene fail.
 - If any scene fails, final `feasible=false` and `score=null`.

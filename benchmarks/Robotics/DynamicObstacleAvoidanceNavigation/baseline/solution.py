@@ -218,13 +218,21 @@ def _track_control(
 
     w_des = float(np.clip(3.0 * err, -wmax, wmax))
 
+    # Enhanced dynamic obstacle avoidance with detour
+    robot_radius = float(scene["robot"]["radius"])
+    best_v, best_w = v_des, w_des
+    min_risk = float("inf")
+
     for obs in scene["dynamic_obstacles"]:
         dyn_r = float(obs["radius"])
-        safe = float(scene["robot"]["radius"]) + dyn_r + 0.07
-        risk = False
-        for h in range(1, 7):
+        safe = robot_radius + dyn_r + 0.10
+
+        # Check multiple future steps
+        for h in range(1, 10):
             tt = t_next + (h - 1) * dt
             dyn = _interp_dynamic_position(obs["trajectory"], tt)
+
+            # Predict robot position with current controls
             pred = np.array(
                 [
                     pos[0] + v_des * np.cos(theta) * dt * h,
@@ -232,20 +240,52 @@ def _track_control(
                 ],
                 dtype=float,
             )
-            if np.linalg.norm(pred - dyn) < safe:
-                risk = True
-                break
-        if risk:
-            v_des = 0.0
-            break
+            dist = np.linalg.norm(pred - dyn)
+            if dist < safe:
+                # Try detour strategies
+                for delta_angle in [-0.8, 0.8, -0.5, 0.5, -1.2, 1.2]:
+                    new_heading = theta + delta_angle
+                    v_try = 0.5 * vmax
+                    detour_ok = True
+                    for h2 in range(1, 8):
+                        tt2 = t_next + (h2 - 1) * dt
+                        dyn2 = _interp_dynamic_position(obs["trajectory"], tt2)
+                        pred2 = np.array(
+                            [
+                                pos[0] + v_try * np.cos(new_heading) * dt * h2,
+                                pos[1] + v_try * np.sin(new_heading) * dt * h2,
+                            ],
+                            dtype=float,
+                        )
+                        if np.linalg.norm(pred2 - dyn2) < safe:
+                            detour_ok = False
+                            break
+                    if detour_ok:
+                        # Check static collision for detour
+                        pred_detour = np.array(
+                            [pos[0] + v_try * np.cos(new_heading) * dt * 3,
+                             pos[1] + v_try * np.sin(new_heading) * dt * 3],
+                            dtype=float,
+                        )
+                        if not _static_collision(pred_detour, scene, inflate=0.0):
+                            best_v = v_try
+                            best_w = float(np.clip(2.5 * delta_angle, -wmax, wmax))
+                            return best_v, best_w
+
+                # If no detour works, slow down significantly
+                risk_level = (safe - dist) / safe
+                if risk_level < min_risk:
+                    min_risk = risk_level
+                    best_v = max(0.0, v_des - 0.8 * vmax * risk_level)
+                    best_w = w_des * 0.5
 
     v_lb = max(-vmax, v_prev - amax * dt)
     v_ub = min(vmax, v_prev + amax * dt)
     w_lb = max(-wmax, w_prev - amax * dt)
     w_ub = min(wmax, w_prev + amax * dt)
 
-    v = float(np.clip(v_des, v_lb, v_ub))
-    w = float(np.clip(w_des, w_lb, w_ub))
+    v = float(np.clip(best_v, v_lb, v_ub))
+    w = float(np.clip(best_w, w_lb, w_ub))
 
     pred = np.array([pos[0] + v * np.cos(theta) * dt, pos[1] + v * np.sin(theta) * dt], dtype=float)
     if _static_collision(pred, scene, inflate=0.0):
